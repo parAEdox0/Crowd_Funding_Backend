@@ -1,33 +1,24 @@
 import jwt from "jsonwebtoken";
+import User from "../models/userModel.js";
 
-// Middleware to protect routes (authentication)
-export const protect = (req, res, next) => {
-    const authHeader = req.header("Authorization");
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "No token provided or invalid format" });
-    }
-
-    const token = authHeader.split(" ")[1]; // Extract the token after "Bearer"
-
+export const protect = async (req, res, next) => {
     try {
+        let token = req.header("Authorization");
+
+        if (!token) return res.status(401).json({ message: "No token, authorization denied" });
+
+        // Handle "Bearer <token>" format
+        if (token.startsWith("Bearer ")) {
+            token = token.split(" ")[1];
+        }
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+        req.user = await User.findById(decoded.id).select("-password");
+
+        if (!req.user) return res.status(401).json({ message: "User not found" });
+
         next();
     } catch (error) {
-        return res.status(401).json({ message: "Invalid or expired token" });
+        res.status(401).json({ message: "Invalid token" });
     }
-};
-
-// Middleware to check if user is a creator
-export const isCreator = (req, res, next) => {
-    if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized: No user data" });
-    }
-
-    if (req.user.role !== "creator") {
-        return res.status(403).json({ message: "Forbidden: Not authorized as a creator" });
-    }
-
-    next();
 };

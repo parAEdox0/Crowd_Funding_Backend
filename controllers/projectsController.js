@@ -1,12 +1,11 @@
 import Project from "../models/projectsModel.js";
 import Contribution from "../models/contributionModel.js";
-import { validationResult } from "express-validator";
 
 // Create a new project
 export const createProject = async (req, res) => {
     try {
-        const { title, description, creator, goal, duration } = req.body;
-        if (!title || !description || !creator || !goal || !duration) {
+        const { title, description, goal, duration } = req.body;
+        if (!title || !description || !goal || !duration) {
             return res.status(400).json({ error: "All fields are required" });
         }
 
@@ -17,7 +16,7 @@ export const createProject = async (req, res) => {
         const project = new Project({
             title,
             description,
-            creator,
+            creator: req.user.id,
             image,
             goal,
             duration,
@@ -36,7 +35,7 @@ export const createProject = async (req, res) => {
 // Get all projects
 export const getProjects = async (req, res) => {
     try {
-        const projects = await Project.find().populate("creator rewards backers");
+        const projects = await Project.find().populate("creator", "name email");
         res.status(200).json(projects);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -46,7 +45,7 @@ export const getProjects = async (req, res) => {
 // Get single project by ID
 export const getProjectById = async (req, res) => {
     try {
-        const project = await Project.findById(req.params.id).populate("creator rewards backers");
+        const project = await Project.findById(req.params.id).populate("creator", "name email");
         if (!project) return res.status(404).json({ error: "Project not found" });
 
         res.status(200).json(project);
@@ -58,14 +57,13 @@ export const getProjectById = async (req, res) => {
 // Update a project (Only by the Creator)
 export const updateProject = async (req, res) => {
     try {
-        const { title, description, goal, duration, creator } = req.body;
+        const { title, description, goal, duration } = req.body;
         const image = req.file ? `/uploads/${req.file.filename}` : null;
 
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ error: "Project not found" });
 
-        // Ensure only the creator can update the project
-        if (project.creator.toString() !== creator) {
+        if (project.creator.toString() !== req.user.id) {
             return res.status(403).json({ error: "Unauthorized: Only the creator can update this project" });
         }
 
@@ -85,12 +83,10 @@ export const updateProject = async (req, res) => {
 // Delete a project (Only by the Creator)
 export const deleteProject = async (req, res) => {
     try {
-        const { creator } = req.body;
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ error: "Project not found" });
 
-        // Ensure only the creator can delete the project
-        if (project.creator.toString() !== creator) {
+        if (project.creator.toString() !== req.user.id) {
             return res.status(403).json({ error: "Unauthorized: Only the creator can delete this project" });
         }
 
@@ -101,28 +97,25 @@ export const deleteProject = async (req, res) => {
     }
 };
 
-// Contribute to a project (Backer invests money)
+// Contribute to a project (User invests money)
 export const contributeToProject = async (req, res) => {
     try {
-        const { backerId, amount } = req.body;
-        if (!backerId || !amount) {
-            return res.status(400).json({ error: "Backer ID and amount are required" });
+        const { amount } = req.body;
+        if (!amount || amount <= 0) {
+            return res.status(400).json({ error: "Amount must be greater than zero" });
         }
 
         const projectId = req.params.id;
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ error: "Project not found" });
 
-        // Ensure total funds do not exceed the goal
         if (project.fundsRaised + amount > project.goal) {
             return res.status(400).json({ error: "Contribution exceeds project goal" });
         }
 
-        // Create a contribution entry
-        const contribution = new Contribution({ backer: backerId, project: projectId, amount });
+        const contribution = new Contribution({ backer: req.user.id, project: projectId, amount });
         await contribution.save();
 
-        // Update project funding details
         project.fundsRaised += amount;
         project.completionPercentage = (project.fundsRaised / project.goal) * 100;
         await project.save();
