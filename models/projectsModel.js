@@ -7,7 +7,7 @@ const projectSchema = new mongoose.Schema({
     duration: { type: Number, required: true },
     completionPercentage: { type: Number, default: 0 },
     image: { type: String },
-    creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Ensure this exists
+    creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
 
 export default mongoose.model("Project", projectSchema);

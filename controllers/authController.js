@@ -1,56 +1,42 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
-import Creator from '../models/creatorModel.js';
-import Backer from '../models/backerModel.js';
+import User from '../models/userModel.js';
 
-// Register a Creator
-export const registerCreator = async (req, res) => {
+// Register User
+export const registerUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
         const errors = validationResult(req);
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newCreator = new Creator({ name, email, password: hashedPassword });
-        await newCreator.save();
+        const existingUser = await User.findOne({ email });
+        if (existingUser) return res.status(400).json({ message: "Email already registered" });
 
-        res.status(201).json({ message: "Creator registered successfully!" });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = new User({ name, email, password: hashedPassword });
+        await newUser.save();
+
+        res.status(201).json({ message: "User registered successfully!" });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Register a Backer
-export const registerBacker = async (req, res) => {
+// Login User
+export const loginUser = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { email, password } = req.body;
         const errors = validationResult(req);
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newBacker = new Backer({ name, email, password: hashedPassword });
-        await newBacker.save();
-
-        res.status(201).json({ message: "Backer registered successfully!" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-// Login for Creators & Backers
-export const login = async (req, res) => {
-    try {
-        const { email, password, role } = req.body; // role: "creator" or "backer"
-        const UserModel = role === "creator" ? Creator : Backer;
-
-        const user = await UserModel.findOne({ email });
+        const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ message: "User not found" });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-        const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         res.json({ token, user });
     } catch (error) {

@@ -1,9 +1,15 @@
 import Project from "../models/projectsModel.js";
+import Contribution from "../models/contributionModel.js";
+import { validationResult } from "express-validator";
 
 // Create a new project
 export const createProject = async (req, res) => {
     try {
         const { title, description, creator, goal, duration } = req.body;
+        if (!title || !description || !creator || !goal || !duration) {
+            return res.status(400).json({ error: "All fields are required" });
+        }
+
         const image = req.file ? `/uploads/${req.file.filename}` : null;
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + parseInt(duration));
@@ -21,7 +27,7 @@ export const createProject = async (req, res) => {
         });
 
         await project.save();
-        res.status(201).json(project);
+        res.status(201).json({ message: "Project created successfully", project });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -49,14 +55,19 @@ export const getProjectById = async (req, res) => {
     }
 };
 
-// Update a project
+// Update a project (Only by the Creator)
 export const updateProject = async (req, res) => {
     try {
-        const { title, description, goal, duration } = req.body;
+        const { title, description, goal, duration, creator } = req.body;
         const image = req.file ? `/uploads/${req.file.filename}` : null;
 
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ error: "Project not found" });
+
+        // Ensure only the creator can update the project
+        if (project.creator.toString() !== creator) {
+            return res.status(403).json({ error: "Unauthorized: Only the creator can update this project" });
+        }
 
         project.title = title || project.title;
         project.description = description || project.description;
@@ -65,17 +76,23 @@ export const updateProject = async (req, res) => {
         project.duration = duration || project.duration;
 
         await project.save();
-        res.status(200).json(project);
+        res.status(200).json({ message: "Project updated successfully", project });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Delete a project
+// Delete a project (Only by the Creator)
 export const deleteProject = async (req, res) => {
     try {
+        const { creator } = req.body;
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ error: "Project not found" });
+
+        // Ensure only the creator can delete the project
+        if (project.creator.toString() !== creator) {
+            return res.status(403).json({ error: "Unauthorized: Only the creator can delete this project" });
+        }
 
         await project.deleteOne();
         res.status(200).json({ message: "Project deleted successfully" });
@@ -85,15 +102,21 @@ export const deleteProject = async (req, res) => {
 };
 
 // Contribute to a project (Backer invests money)
-import Contribution from "../models/contributionModel.js";
-
 export const contributeToProject = async (req, res) => {
     try {
         const { backerId, amount } = req.body;
-        const projectId = req.params.id;
+        if (!backerId || !amount) {
+            return res.status(400).json({ error: "Backer ID and amount are required" });
+        }
 
+        const projectId = req.params.id;
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ error: "Project not found" });
+
+        // Ensure total funds do not exceed the goal
+        if (project.fundsRaised + amount > project.goal) {
+            return res.status(400).json({ error: "Contribution exceeds project goal" });
+        }
 
         // Create a contribution entry
         const contribution = new Contribution({ backer: backerId, project: projectId, amount });
