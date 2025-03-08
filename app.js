@@ -5,10 +5,14 @@ import bodyParser from "body-parser";
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import projectRoutes from './routes/projectsRoutes.js'
+import cors from 'cors';
+
 
 const app = express()
+app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
 
 // Routes
 app.use('/api/auth', authRoutes);
