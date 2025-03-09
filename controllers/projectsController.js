@@ -4,30 +4,31 @@ import Contribution from "../models/contributionModel.js";
 // Create a new project
 export const createProject = async (req, res) => {
     try {
-        const { title, description, goal, duration } = req.body;
-        if (!title || !description || !goal || !duration) {
-            return res.status(400).json({ error: "All fields are required" });
-        }
+        const { title, description, goal, duration, category, image } = req.body;
+        console.log("Request body:", req.body);
+        console.log("User:", req.user);
 
-        const image = req.file ? `/uploads/${req.file.filename}` : null;
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + parseInt(duration));
+        if (!title || !description || !goal || !duration || !category) {
+            return res.status(400).json({ error: "All required fields must be provided" });
+        }
 
         const project = new Project({
             title,
             description,
-            creator: req.user.id,
+            goal: parseInt(goal),
+            duration: parseInt(duration),
+            category,
             image,
-            goal,
-            duration,
-            endDate,
-            completionPercentage: 0,
-            fundsRaised: 0,
+            creator: req.user._id,
+            raised: 0,
+            daysLeft: parseInt(duration),
         });
 
-        await project.save();
-        res.status(201).json({ message: "Project created successfully", project });
+        const savedProject = await project.save();
+        console.log("Saved project:", savedProject);
+        res.status(201).json({ message: "Project created successfully", project: savedProject });
     } catch (error) {
+        console.error("Create project error:", error.stack);
         res.status(500).json({ error: error.message });
     }
 };

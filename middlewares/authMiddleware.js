@@ -7,7 +7,6 @@ export const protect = async (req, res, next) => {
 
         if (!token) return res.status(401).json({ message: "No token, authorization denied" });
 
-        // Handle "Bearer <token>" format
         if (token.startsWith("Bearer ")) {
             token = token.split(" ")[1];
         }

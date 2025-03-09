@@ -1,20 +1,15 @@
 import express from 'express';
 import 'dotenv/config';
-import bodyParser from "body-parser";
-
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
-import projectRoutes from './routes/projectsRoutes.js'
+import projectRoutes from './routes/projectsRoutes.js';
 import cors from 'cors';
 
-
-const app = express()
+const app = express();
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 
